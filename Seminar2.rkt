@@ -30,9 +30,9 @@
                 
         [(if-then-else? izraz)
          (let ([v1 (mi (if-then-else-p izraz) okolje)])
-           (if (true? v1)
-               (mi (if-then-else-e1 izraz) okolje)
-               (mi (if-then-else-e2 izraz) okolje)))]
+           (cond [(true? v1) (mi (if-then-else-e1 izraz) okolje)]
+                 [(false? v1) (mi (if-then-else-e2 izraz) okolje)]
+                 [#t (displayln "Pogoj mora biti logični operator.")]))]
         
         [(is-int? izraz)
          (let ([v1 (mi (is-int-e izraz) okolje)])
