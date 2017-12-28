@@ -1,0 +1,6 @@
+#lang racket
+(struct int (n) #:transparent)
+
+
+(define (mi izraz okolje)
+  (cond [(int? izraz ) izraz]))
