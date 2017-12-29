@@ -12,6 +12,10 @@
 (struct both (e1 e2) #:transparent)
 (struct any (e1 e2) #:transparent)
 (struct ! (e1) #:transparent)
+(struct hd (e) #:transparent)
+(struct tl (e) #:transparent)
+(struct is-empty (e) #:transparent)
+(struct @ (e1 e2) #:transparent)
 (struct real (c) #:transparent)
 (struct imaginary (c) #:transparent)
 (struct is-int (e) #:transparent)
@@ -27,7 +31,14 @@
         [(empty? izraz) izraz]
         [(int? izraz) (if (integer? (int-n izraz)) izraz (displayln "Int mora biti celoštevilska vrednost"))]
         [(complex? izraz) (if (and (integer? (complex-a izraz)) (integer? (complex-b izraz))) izraz (displayln "A in B pri complex morata biti celoštevilski vrednosti."))]
-                
+
+        [(::? izraz)
+         (let ([v1 (mi (::-e1 izraz) okolje)]
+               [v2 (mi (::-e2 izraz) okolje)])
+           (cond [(or (empty? v1) (::? v1)) (displayln "Prvi seznam elementa ne more biti seznam ali empty.")]
+                 [(::? v2) (:: v1 (mi v2 okolje))]
+                 [#t (:: v1 v2)]))]
+        
         [(if-then-else? izraz)
          (let ([v1 (mi (if-then-else-p izraz) okolje)])
            (cond [(true? v1) (mi (if-then-else-e1 izraz) okolje)]
@@ -49,6 +60,12 @@
         [(is-complex? izraz)
          (let ([v1 (mi (is-complex-e izraz) okolje)])
            (if (complex? v1)
+               (true)
+               (false)))]
+
+        [(is-list? izraz)
+         (let ([v1 (mi (is-list-e izraz) okolje)])
+           (if (or (::? v1) (empty? v1))
                (true)
                (false)))]
         
@@ -92,6 +109,20 @@
            (cond [(true? v1) (false)]
                  [(false? v1) (true)]
                  [#t (displayln "Izraz se ne evalvira v true/false.")]))]
+
+        [(hd? izraz)
+         (let ([v1 (mi (hd-e izraz) okolje)])
+           (if (::? v1) (::-e1 v1) (displayln "Hd deluje samo na seznamih.")))]
+
+        [(tl? izraz)
+         (let ([v1 (mi (tl-e izraz) okolje)])
+           (if (::? v1) (::-e2 v1) (displayln "Tl deluje samo na seznamih.")))]
+
+        [(is-empty? izraz)
+         (let ([v1 (mi (is-empty-e izraz) okolje)])
+           (cond [(empty? v1) (true)]
+                 [(::? v1) (false)]
+                 [(#t) (displayln "Is-empty deluje samo na seznamih")]))]
         
         [(real? izraz)
          (let ([v1 (mi (real-c izraz) okolje)])
