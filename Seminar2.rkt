@@ -30,7 +30,7 @@
         [(false? izraz) izraz]
         [(empty? izraz) izraz]
         [(int? izraz) (if (integer? (int-n izraz)) izraz (displayln "Int mora biti celoštevilska vrednost"))]
-        [(complex? izraz) (if (and (integer? (complex-a izraz)) (integer? (complex-b izraz))) izraz (displayln "A in B pri complex morata biti celoštevilski vrednosti."))]
+        [(complex? izraz) (if (and (int? (complex-a izraz)) (int? (complex-b izraz))) izraz (displayln "A in B pri complex morata biti celoštevilski vrednosti."))]
 
         [(::? izraz)
          (let ([v1 (mi (::-e1 izraz) okolje)]
@@ -73,14 +73,15 @@
          (let ([v1 (mi (add-e1 izraz) okolje)]
                [v2 (mi (add-e2 izraz) okolje)])
            (cond [(and (int? v1) (int? v2)) (int (+ (int-n v1) (int-n v2)))]
-                 [(and (complex? v1) (complex? v2)) (complex (+ (complex-a v1)(complex-a v2)) (+ (complex-b v1) (complex-b v2)))]
+                 [(and (complex? v1) (complex? v2)) (complex (mi (add (complex-a v1)(complex-a v2)) okolje) (mi (add (complex-b v1) (complex-b v2)) okolje))]
                  [#t (displayln "Tipa seštevancev nista enaka")]))]
 
         [(mul? izraz)
          (let ([v1 (mi (mul-e1 izraz) okolje)]
                [v2 (mi (mul-e2 izraz) okolje)])
            (cond [(and (int? v1) (int? v2)) (int (* (int-n v1) (int-n v2)))]
-                 [(and (complex? v1) (complex? v2)) (complex (- (* (complex-a v1) (complex-a v2)) (* (complex-b v1) (complex-b v2))) (+ (* (complex-b v2) (complex-a v1)) (* (complex-a v2) (complex-b v1))))]
+                 ;Popravi množenje kompleksnih števil
+                 ;[(and (complex? v1) (complex? v2)) (complex (- (* (complex-a v1) (complex-a v2)) (* (complex-b v1) (complex-b v2))) (+ (* (complex-b v2) (complex-a v1)) (* (complex-a v2) (complex-b v1))))]
                  [#t (displayln "Tipa množencev nista enaka")]))]
 
         [(gt? izraz)
@@ -127,13 +128,13 @@
         [(real? izraz)
          (let ([v1 (mi (real-c izraz) okolje)])
            (if (complex? v1)
-               (int (complex-a v1))
+               (complex-a v1)
                (displayln "Element mora biti kompleksno število")))]
 
         [(imaginary? izraz)
          (let ([v1 (mi (imaginary-c izraz) okolje)])
            (if (complex? v1)
-               (int (complex-b v1))
+               (complex-b v1)
                (displayln "Element mora biti kompleksno število")))]))
 
 ;testi
