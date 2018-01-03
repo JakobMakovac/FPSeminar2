@@ -24,23 +24,6 @@
 (struct is-list (e) #:transparent)
 
 
-(define (to-complex e1)
-  (cond [(int? e1) (complex e1 (int 0))]
-        [#t (e1)]))
-
-(define (conj e1)
-  (cond [(complex? e1) (complex (complex-a e1) (int (-(int-n (complex-b e1)))))]
-        [#t e1]))
-
-(define (~ e1)
-  (cond [(int? e1) (int (- (int-n e1)))]
-        [#t e1]))
-
-(define (lt e1 e2)
-  (mi (gt e2 e1) null))
-
-(define (same e1 e2)
-  (mi (both (!(lt e1 e2)) (!(gt e1 e2))) null)) 
 
 (define (mi izraz okolje)
   (cond [(true? izraz) izraz]
@@ -153,10 +136,6 @@
            (if (complex? v1)
                (complex-b v1)
                (displayln "Element mora biti kompleksno število")))]))
-
-
-
-
 
 ;testi
 
