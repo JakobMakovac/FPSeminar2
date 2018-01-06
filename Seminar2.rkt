@@ -97,8 +97,7 @@
          (let ([v1 (mi (mul-e1 izraz) okolje)]
                [v2 (mi (mul-e2 izraz) okolje)])
            (cond [(and (int? v1) (int? v2)) (int (* (int-n v1) (int-n v2)))]
-                 ;Popravi množenje kompleksnih števil
-                 ;[(and (complex? v1) (complex? v2)) (complex (- (* (complex-a v1) (complex-a v2)) (* (complex-b v1) (complex-b v2))) (+ (* (complex-b v2) (complex-a v1)) (* (complex-a v2) (complex-b v1))))]
+                 [(and (complex? v1) (complex? v2)) (complex (int (- (* (int-n (complex-a v1)) (int-n (complex-a v2))) (* (int-n (complex-b v1)) (int-n (complex-b v2))))) (int (+ (* (int-n (complex-b v2)) (int-n (complex-a v1))) (* (int-n (complex-a v2)) (int-n (complex-b v1))))))]
                  [#t (displayln "Tipa množencev nista enaka")]))]
 
         [(gt? izraz)
