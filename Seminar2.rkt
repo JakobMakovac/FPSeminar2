@@ -16,8 +16,8 @@
 (struct tl (e) #:transparent)
 (struct is-empty (e) #:transparent)
 (struct @ (e1 e2) #:transparent)
-(struct real (c) #:transparent)
-(struct imaginary (c) #:transparent)
+(struct real (e1) #:transparent)
+(struct imaginary (e1) #:transparent)
 (struct is-int (e) #:transparent)
 (struct is-bool (e) #:transparent)
 (struct is-complex (e) #:transparent)
@@ -26,6 +26,10 @@
 (struct proc (name body) #:transparent)
 (struct call (e args) #:transparent)
 (struct envelope (env f) #:transparent)
+(struct var (s e1 e2) #:transparent)
+(struct valof (s) #:transparent)
+(struct prikaz_okolje () #:transparent)
+
 
 
 (define (to-complex e1)
@@ -50,8 +54,12 @@
         [(false? izraz) izraz]
         [(empty? izraz) izraz]
         [(int? izraz) (if (integer? (int-n izraz)) izraz (error "Int mora biti celoštevilska vrednost"))]
-        [(complex? izraz) (if (and (int? (complex-a izraz)) (int? (complex-b izraz))) izraz (error "A in B pri complex morata biti celoštevilski vrednosti."))]
 
+        [(complex? izraz)
+         (let ([v1 (mi (complex-a izraz) okolje)]
+               [v2 (mi (complex-b izraz) okolje)])
+           (if (and (int? v1) (int? v2)) (complex v1 v2) (error "A in B morata biti številski konstanti.")))]
+        
         [(::? izraz)
          (let ([v1 (mi (::-e1 izraz) okolje)]
                [v2 (mi (::-e2 izraz) okolje)])
@@ -145,16 +153,25 @@
                  [(#t) (error "Is-empty deluje samo na seznamih")]))]
         
         [(real? izraz)
-         (let ([v1 (mi (real-c izraz) okolje)])
+         (let ([v1 (mi (real-e1 izraz) okolje)])
            (if (complex? v1)
                (complex-a v1)
                (error "Element mora biti kompleksno število")))]
 
         [(imaginary? izraz)
-         (let ([v1 (mi (imaginary-c izraz) okolje)])
+         (let ([v1 (mi (imaginary-e1 izraz) okolje)])
            (if (complex? v1)
                (complex-b v1)
-               (error "Element mora biti kompleksno število")))]))
+               (error "Element mora biti kompleksno število")))]
+
+        [(var? izraz)
+         (let ([v1 (mi (var-e1 izraz) okolje)])
+           (mi (var-e2 izraz) (append okolje (list (cons (var-s izraz) v1)))))]
+
+        [(valof? izraz)
+         (cdr (assoc (valof-s izraz) okolje))]
+
+        [(prikaz_okolje? izraz) okolje]))
 
 
 
