@@ -7,6 +7,7 @@
 (struct empty () #:transparent)
 (struct if-then-else (p e1 e2) #:transparent)
 (struct add (e1 e2) #:transparent)
+(struct sub (e1 e2) #:transparent)
 (struct mul (e1 e2) #:transparent)
 (struct gt (e1 e2) #:transparent)
 (struct both (e1 e2) #:transparent)
@@ -33,15 +34,13 @@
 
 
 (define (to-complex e1)
-  (cond [(int? e1) (complex e1 (int 0))]
-        [#t (error "Argument ni številska konstanta.")]))
+  (complex e1 (int 0)))
 
 (define (conj e1)
-  (cond [(complex? e1) (complex (complex-a e1) (int (-(int-n (complex-b e1)))))]
-        [#t (error "Argument ni kompleksno število.")]))
+  e1)
 
 (define (~ e1)
-  (if (int? e1) (int (-(int-n e1))) (error "~ deluje le na številskih konstantah.")))
+  (sub (int 0) e1))
 
 (define (lt e1 e2)
   (gt e2 e1))
@@ -102,6 +101,12 @@
                [v2 (mi (add-e2 izraz) okolje)])
            (cond [(and (int? v1) (int? v2)) (int (+ (int-n v1) (int-n v2)))]
                  [(and (complex? v1) (complex? v2)) (complex (mi (add (complex-a v1)(complex-a v2)) okolje) (mi (add (complex-b v1) (complex-b v2)) okolje))]
+                 [#t (error "Tipa seštevancev nista enaka")]))]
+
+        [(sub? izraz)
+         (let ([v1 (mi (sub-e1 izraz) okolje)]
+               [v2 (mi (sub-e2 izraz) okolje)])
+           (cond [(and (int? v1) (int? v2)) (int (- (int-n v1) (int-n v2)))]
                  [#t (error "Tipa seštevancev nista enaka")]))]
 
         [(mul? izraz)
@@ -178,24 +183,3 @@
 
 
 ;testi
-
-;(mi (int 2) 0)
-;(mi (int "a") 0)
-;(mi (true) 0)
-;(mi (false) 0)
-;(mi (complex 2 3) 0)
-;(mi (complex "a" 2) 9)
-;(mi (add (int 1) (int 3)) 0)
-;(mi (add (complex 2 3) (complex 1 4)) 0)
-;(mi (add (complex 2 3) (int 3)) 0)
-;(mi (add (int 1) (true)) 0)
-;(mi (mul (int 1) (int 3)) 0)
-;(mi (mul (complex 2 3) (complex 1 4)) 0)
-;(mi (mul (complex 2 3) (int 3)) 0)
-;(mi (mul (int 1) (true)) 0)
-;(mi (gt (int 1) (int 3)) 0)
-;(mi (gt (int 3) (int 1)) 0)
-;(mi (gt (true) (int 3)) 0)
-;(mi (real (complex 2 3)) 0)
-;(mi (imaginary (complex 2 3)) 0)
-;(mi (real (int 3)) 0)
