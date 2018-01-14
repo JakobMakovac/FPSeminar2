@@ -52,6 +52,7 @@
   (cond [(true? izraz) izraz]
         [(false? izraz) izraz]
         [(empty? izraz) izraz]
+        [(envelope? izraz) izraz]
         [(int? izraz) (if (integer? (int-n izraz)) izraz (error "Int mora biti celoštevilska vrednost"))]
 
         [(complex? izraz)
@@ -64,7 +65,17 @@
                [v2 (mi (::-e2 izraz) okolje)])
            (cond [(or (empty? v1) (::? v1)) (error "Prvi seznam elementa ne more biti seznam ali empty.")]
                  [(::? v2) (:: v1 (mi v2 okolje))]
-                 [#t (:: v1 v2)]))]
+                 [(empty? v2) izraz]
+                 [#t (error "Napačen seznam")]))]
+
+        [(@? izraz)
+         (let ([v1 (mi (@-e1 izraz) okolje)]
+               [v2 (mi (@-e2 izraz) okolje)])
+           (cond [(empty? v2) v1]
+                 [(and (::? v1) (::? v2)) (:: (::-e1 v1) (mi (@ (::-e2 v1) v2) okolje))]
+                 [(and (empty? v1) (::? v2)) v2]
+                 [#t (error "Napaka s seznami")]
+                 ))]
         
         [(if-then-else? izraz)
          (let ([v1 (mi (if-then-else-p izraz) okolje)])
@@ -145,17 +156,19 @@
 
         [(hd? izraz)
          (let ([v1 (mi (hd-e izraz) okolje)])
-           (if (::? v1) (::-e1 v1) (error "Hd deluje samo na seznamih.")))]
+           (cond [(::? v1) (::-e1 v1)]
+                 [(empty? v1) (empty)]))]
 
         [(tl? izraz)
          (let ([v1 (mi (tl-e izraz) okolje)])
-           (if (::? v1) (::-e2 v1) (error "Tl deluje samo na seznamih.")))]
+           (cond [(::? v1) (::-e2 v1)]
+                 [(empty? v1) (empty)]))]
 
         [(is-empty? izraz)
          (let ([v1 (mi (is-empty-e izraz) okolje)])
            (cond [(empty? v1) (true)]
                  [(::? v1) (false)]
-                 [(#t) (error "Is-empty deluje samo na seznamih")]))]
+                 [#t (error "Is-empty deluje samo na seznamih")]))]
         
         [(real? izraz)
          (let ([v1 (mi (real-e1 izraz) okolje)])
@@ -185,8 +198,9 @@
         [(call? izraz)
          (let ([e1 (mi (call-e izraz) okolje)])
            (cond [(proc? e1) (mi (proc-body e1) (append (list (cons (proc-name e1) e1)) okolje))]
-                 [(envelope? e1) ]
-                 [#t izraz]))]
+                 [(envelope? e1)
+                  (mi (fun-body (envelope-f e1)) (append (list (cons (fun-name (envelope-f e1)) e1)) (append (map (lambda (x) (cons (car x) (mi (cdr x) okolje))) (map cons (fun-fargs (envelope-f e1)) (call-args izraz))) (envelope-env e1))))]
+                 [#t (error "Izraz ni funkcija")]))]
 
         [(prikaz_okolje? izraz) okolje]))
 
@@ -200,4 +214,87 @@
 (define toZero (proc "toZero" (if-then-else (same (valof "x") (int 0)) (valof "x") (var "x" (sub (valof "x") (int 1)) (call (valof "toZero") null)))))
 (define isZero (proc "isZero" (if-then-else (same (valof "x") (int 0)) (true) (false))))
 
-;(mi (call add1 (list (int 5))) null)
+(define e (mi (var "a" (int 1)
+              (var "fun_a" (fun "f" (list "a") (valof "a"))
+              (var "b" (int 5)
+              (var "c" (int 6)
+              (fun "fun_b" (list) (call (valof "fun_a") (list (valof "b")))))))) null))
+
+(define fib (fun "fib" (list "n")
+                 (if-then-else (gt (int 3) (valof "n"))
+                               (int 1)
+                               (add (call (valof "fib") (list (add (valof "n") (int -1))))
+                                    (call (valof "fib") (list (add (valof "n") (int -2))))))))
+
+(define quick-sort 
+  (fun "quick_sort" (list "lst")
+    (var "filter"
+      (fun "filter_" (list "foo" "lst")
+        (if-then-else (is-empty (valof "lst"))(empty)
+          (if-then-else (call (valof "foo")(list (hd (valof "lst"))))
+            (:: (hd (valof "lst")) (call (valof "filter_") (list (valof "foo") (tl (valof "lst")))))
+            (call (valof "filter_") (list (valof "foo") (tl (valof "lst")))))))
+      ;end of filter, start quicksort
+      (if-then-else (is-empty (tl (valof "lst")))(valof "lst")
+      (var "left" 
+      (call (valof "filter") (list (fun "" (list "x") (lt (valof "x") (hd (valof "lst"))))(valof "lst")))
+        (var "right" (call (valof "filter") (list (fun "" (list "x") (gt (valof "x") (hd (valof "lst")))) (valof "lst")))
+      (@ (call (valof "quick_sort")(list (valof "left")))(:: (hd (valof "lst")) (call (valof "quick_sort")(list (valof "right"))) ))  ))
+      ))
+    )
+)
+
+(define foldl_
+  (fun "foldl" (list "foo" "accum" "lst")
+    (if-then-else (is-empty (valof "lst")) (valof "accum")
+      (call (valof "foldl")(list (valof "foo") 
+                            (call (valof "foo")(list (hd (valof "lst"))(valof "accum"))) 
+                            (tl (valof "lst")))))
+  )
+)
+
+(define foldr_
+  (fun "foldr" (list "foo" "accum" "lst")
+    (if-then-else (is-empty (valof "lst")) (valof "accum")
+      (call (valof "foo") (list (hd (valof "lst"))
+        (call (valof "foldr") (list (valof "foo")(valof "accum")(tl(valof "lst")))))))
+  )
+)
+
+(define sum_ 
+  (fun "sum" (list "lst") 
+    (call foldl_ (list 
+      (fun "" (list "x" "X")(add (valof "x")(valof "X")))(int 0) (valof "lst")))
+  )
+)
+
+(define map_
+  (fun "map" (list "foo" "lst")
+    (call foldr_ (list
+      (fun "" (list "x" "X") (:: (call (valof "foo") (list (valof "x"))) (valof "X"))) (empty)(valof "lst"))))
+)
+
+(define square_
+  (fun "square" (list "lst")
+    (call map_ (list (fun "" (list "x") (mul (valof "x")(valof "x"))) (valof "lst"))))
+)
+
+(define reverse (fun "reverse" (list "xs")
+                     (if-then-else
+                      (is-empty (valof "xs"))
+                      (empty)
+                      (@ (call (valof "reverse") (list (tl (valof "xs"))))
+                               (:: (hd (valof "xs")) (empty))))))
+
+
+(define listic (:: (int 8)(:: (int 10)(:: (int 2)(:: (int 6) (:: (int 1) (:: (int 9) (:: (int 11) (empty)))))))))
+
+listic
+
+;(mi (call quick-sort (list listic)) null)
+
+;(mi (call sum_ (list listic))null)
+
+;(mi (call square_ (list listic))null)
+
+

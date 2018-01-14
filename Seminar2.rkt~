@@ -7,6 +7,7 @@
 (struct empty () #:transparent)
 (struct if-then-else (p e1 e2) #:transparent)
 (struct add (e1 e2) #:transparent)
+(struct sub (e1 e2) #:transparent)
 (struct mul (e1 e2) #:transparent)
 (struct gt (e1 e2) #:transparent)
 (struct both (e1 e2) #:transparent)
@@ -16,26 +17,52 @@
 (struct tl (e) #:transparent)
 (struct is-empty (e) #:transparent)
 (struct @ (e1 e2) #:transparent)
-(struct real (c) #:transparent)
-(struct imaginary (c) #:transparent)
+(struct real (e1) #:transparent)
+(struct imaginary (e1) #:transparent)
 (struct is-int (e) #:transparent)
 (struct is-bool (e) #:transparent)
 (struct is-complex (e) #:transparent)
 (struct is-list (e) #:transparent)
+(struct fun (name fargs body) #:transparent)
+(struct proc (name body) #:transparent)
+(struct call (e args) #:transparent)
+(struct envelope (env f) )
+(struct var (s e1 e2) #:transparent)
+(struct valof (s) #:transparent)
+(struct prikaz_okolje () #:transparent)
 
 
+
+(define (to-complex e1)
+  (complex e1 (int 0)))
+
+(define (conj e1)
+  e1)
+
+(define (~ e1)
+  (sub (int 0) e1))
+
+(define (lt e1 e2)
+  (gt e2 e1))
+
+(define (same e1 e2)
+  (both (!(lt e1 e2)) (!(gt e1 e2))))
 
 (define (mi izraz okolje)
   (cond [(true? izraz) izraz]
         [(false? izraz) izraz]
         [(empty? izraz) izraz]
-        [(int? izraz) (if (integer? (int-n izraz)) izraz (displayln "Int mora biti celoštevilska vrednost"))]
-        [(complex? izraz) (if (and (int? (complex-a izraz)) (int? (complex-b izraz))) izraz (displayln "A in B pri complex morata biti celoštevilski vrednosti."))]
+        [(int? izraz) (if (integer? (int-n izraz)) izraz (error "Int mora biti celoštevilska vrednost"))]
 
+        [(complex? izraz)
+         (let ([v1 (mi (complex-a izraz) okolje)]
+               [v2 (mi (complex-b izraz) okolje)])
+           (if (and (int? v1) (int? v2)) (complex v1 v2) (error "A in B morata biti številski konstanti.")))]
+        
         [(::? izraz)
          (let ([v1 (mi (::-e1 izraz) okolje)]
                [v2 (mi (::-e2 izraz) okolje)])
-           (cond [(or (empty? v1) (::? v1)) (displayln "Prvi seznam elementa ne more biti seznam ali empty.")]
+           (cond [(or (empty? v1) (::? v1)) (error "Prvi seznam elementa ne more biti seznam ali empty.")]
                  [(::? v2) (:: v1 (mi v2 okolje))]
                  [#t (:: v1 v2)]))]
         
@@ -43,7 +70,7 @@
          (let ([v1 (mi (if-then-else-p izraz) okolje)])
            (cond [(true? v1) (mi (if-then-else-e1 izraz) okolje)]
                  [(false? v1) (mi (if-then-else-e2 izraz) okolje)]
-                 [#t (displayln "Pogoj mora biti logični operator.")]))]
+                 [#t (error "Pogoj mora biti logični operator.")]))]
         
         [(is-int? izraz)
          (let ([v1 (mi (is-int-e izraz) okolje)])
@@ -74,88 +101,103 @@
                [v2 (mi (add-e2 izraz) okolje)])
            (cond [(and (int? v1) (int? v2)) (int (+ (int-n v1) (int-n v2)))]
                  [(and (complex? v1) (complex? v2)) (complex (mi (add (complex-a v1)(complex-a v2)) okolje) (mi (add (complex-b v1) (complex-b v2)) okolje))]
-                 [#t (displayln "Tipa seštevancev nista enaka")]))]
+                 [#t (error "Tipa seštevancev nista enaka")]))]
+
+        [(sub? izraz)
+         (let ([v1 (mi (sub-e1 izraz) okolje)]
+               [v2 (mi (sub-e2 izraz) okolje)])
+           (cond [(and (int? v1) (int? v2)) (int (- (int-n v1) (int-n v2)))]
+                 [#t (error "Tipa seštevancev nista enaka")]))]
 
         [(mul? izraz)
          (let ([v1 (mi (mul-e1 izraz) okolje)]
                [v2 (mi (mul-e2 izraz) okolje)])
            (cond [(and (int? v1) (int? v2)) (int (* (int-n v1) (int-n v2)))]
-                 ;Popravi množenje kompleksnih števil
-                 ;[(and (complex? v1) (complex? v2)) (complex (- (* (complex-a v1) (complex-a v2)) (* (complex-b v1) (complex-b v2))) (+ (* (complex-b v2) (complex-a v1)) (* (complex-a v2) (complex-b v1))))]
-                 [#t (displayln "Tipa množencev nista enaka")]))]
+                 [(and (complex? v1) (complex? v2)) (complex (int (- (* (int-n (complex-a v1)) (int-n (complex-a v2))) (* (int-n (complex-b v1)) (int-n (complex-b v2))))) (int (+ (* (int-n (complex-b v2)) (int-n (complex-a v1))) (* (int-n (complex-a v2)) (int-n (complex-b v1))))))]
+                 [#t (error "Tipa množencev nista enaka")]))]
 
         [(gt? izraz)
          (let ([v1 (mi (gt-e1 izraz) okolje)]
                [v2 (mi (gt-e2 izraz) okolje)])
            (if (and (int? v1) (int? v2))
                (if (> (int-n v1) (int-n v2)) (true) (false))
-               (displayln "Oba elementa morata biti celoštevilski vrednosti.")))]
+               (error "Oba elementa morata biti celoštevilski vrednosti.")))]
 
         [(both? izraz)
          (let ([v1 (mi (both-e1 izraz) okolje)]
                [v2 (mi (both-e2 izraz) okolje)])
            (if (and (or (true? v1) (false? v1)) (or (true? v2) (false? v2)))
                (if (and (true? v1) (true? v2)) (true) (false))
-               (displayln "Eden od izrazov se ne evalvira v true/false.")))]
+               (error "Eden od izrazov se ne evalvira v true/false.")))]
 
         [(any? izraz)
          (let ([v1 (mi (any-e1 izraz) okolje)]
                [v2 (mi (any-e2 izraz) okolje)])
            (if (and (or (true? v1) (false? v1)) (or (true? v2) (false? v2)))
                (if (or (true? v1) (true? v2)) (true) (false))
-               (displayln "Eden od izrazov se ne evalvira v true/false.")))]
+               (error "Eden od izrazov se ne evalvira v true/false.")))]
 
         [(!? izraz)
          (let ([v1 (mi (!-e1 izraz) okolje)])
            (cond [(true? v1) (false)]
                  [(false? v1) (true)]
-                 [#t (displayln "Izraz se ne evalvira v true/false.")]))]
+                 [#t (error "Izraz se ne evalvira v true/false.")]))]
 
         [(hd? izraz)
          (let ([v1 (mi (hd-e izraz) okolje)])
-           (if (::? v1) (::-e1 v1) (displayln "Hd deluje samo na seznamih.")))]
+           (if (::? v1) (::-e1 v1) (error "Hd deluje samo na seznamih.")))]
 
         [(tl? izraz)
          (let ([v1 (mi (tl-e izraz) okolje)])
-           (if (::? v1) (::-e2 v1) (displayln "Tl deluje samo na seznamih.")))]
+           (if (::? v1) (::-e2 v1) (error "Tl deluje samo na seznamih.")))]
 
         [(is-empty? izraz)
          (let ([v1 (mi (is-empty-e izraz) okolje)])
            (cond [(empty? v1) (true)]
                  [(::? v1) (false)]
-                 [(#t) (displayln "Is-empty deluje samo na seznamih")]))]
+                 [(#t) (error "Is-empty deluje samo na seznamih")]))]
         
         [(real? izraz)
-         (let ([v1 (mi (real-c izraz) okolje)])
+         (let ([v1 (mi (real-e1 izraz) okolje)])
            (if (complex? v1)
                (complex-a v1)
-               (displayln "Element mora biti kompleksno število")))]
+               (error "Element mora biti kompleksno število")))]
 
         [(imaginary? izraz)
-         (let ([v1 (mi (imaginary-c izraz) okolje)])
+         (let ([v1 (mi (imaginary-e1 izraz) okolje)])
            (if (complex? v1)
                (complex-b v1)
-               (displayln "Element mora biti kompleksno število")))]))
+               (error "Element mora biti kompleksno število")))]
+
+        [(var? izraz)
+         (let ([v1 (mi (var-e1 izraz) okolje)])
+           (mi (var-e2 izraz) (append (list (cons (var-s izraz) v1)) okolje)))]
+
+        [(valof? izraz)
+         (cdr (assoc (valof-s izraz) okolje))]
+
+        [(fun? izraz)
+         (envelope okolje izraz)]
+
+        [(proc? izraz)
+         izraz]
+
+        [(call? izraz)
+         (let ([e1 (mi (call-e izraz) okolje)])
+           (cond [(proc? e1) (mi (proc-body e1) (append (list (cons (proc-name e1) e1)) okolje))]
+                 [(envelope? e1) ]
+                 [#t izraz]))]
+
+        [(prikaz_okolje? izraz) okolje]))
+
+
+
+
 
 ;testi
 
-;(mi (int 2) 0)
-;(mi (int "a") 0)
-;(mi (true) 0)
-;(mi (false) 0)
-;(mi (complex 2 3) 0)
-;(mi (complex "a" 2) 9)
-;(mi (add (int 1) (int 3)) 0)
-;(mi (add (complex 2 3) (complex 1 4)) 0)
-;(mi (add (complex 2 3) (int 3)) 0)
-;(mi (add (int 1) (true)) 0)
-;(mi (mul (int 1) (int 3)) 0)
-;(mi (mul (complex 2 3) (complex 1 4)) 0)
-;(mi (mul (complex 2 3) (int 3)) 0)
-;(mi (mul (int 1) (true)) 0)
-;(mi (gt (int 1) (int 3)) 0)
-;(mi (gt (int 3) (int 1)) 0)
-;(mi (gt (true) (int 3)) 0)
-;(mi (real (complex 2 3)) 0)
-;(mi (imaginary (complex 2 3)) 0)
-;(mi (real (int 3)) 0)
+(define add1 (fun "add1" (list "x") (add (valof "x") (int 1))))
+(define toZero (proc "toZero" (if-then-else (same (valof "x") (int 0)) (valof "x") (var "x" (sub (valof "x") (int 1)) (call (valof "toZero") null)))))
+(define isZero (proc "isZero" (if-then-else (same (valof "x") (int 0)) (true) (false))))
+
+;(mi (call add1 (list (int 5))) null)
