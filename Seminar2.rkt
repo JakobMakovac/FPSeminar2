@@ -26,10 +26,9 @@
 (struct fun (name fargs body) #:transparent)
 (struct proc (name body) #:transparent)
 (struct call (e args) #:transparent)
-(struct envelope (env f) )
+(struct envelope (env f) #:transparent)
 (struct var (s e1 e2) #:transparent)
 (struct valof (s) #:transparent)
-(struct prikaz_okolje () #:transparent)
 
 
 
@@ -65,7 +64,7 @@
                [v2 (mi (::-e2 izraz) okolje)])
            (cond [(or (empty? v1) (::? v1)) (error "Prvi seznam elementa ne more biti seznam ali empty.")]
                  [(::? v2) (:: v1 (mi v2 okolje))]
-                 [(empty? v2) izraz]
+                 [(empty? v2) (:: v1 (empty))]
                  [#t (error "Napačen seznam")]))]
 
         [(@? izraz)
@@ -157,12 +156,12 @@
         [(hd? izraz)
          (let ([v1 (mi (hd-e izraz) okolje)])
            (cond [(::? v1) (::-e1 v1)]
-                 [(empty? v1) (empty)]))]
+                 [#t (error "Prazen seznam")]))]
 
         [(tl? izraz)
          (let ([v1 (mi (tl-e izraz) okolje)])
            (cond [(::? v1) (::-e2 v1)]
-                 [(empty? v1) (empty)]))]
+                 [#t (error "Prazen seznam")]))]
 
         [(is-empty? izraz)
          (let ([v1 (mi (is-empty-e izraz) okolje)])
@@ -199,32 +198,11 @@
          (let ([e1 (mi (call-e izraz) okolje)])
            (cond [(proc? e1) (mi (proc-body e1) (append (list (cons (proc-name e1) e1)) okolje))]
                  [(envelope? e1)
-                  (mi (fun-body (envelope-f e1)) (append (list (cons (fun-name (envelope-f e1)) e1)) (append (map (lambda (x) (cons (car x) (mi (cdr x) okolje))) (map cons (fun-fargs (envelope-f e1)) (call-args izraz))) (envelope-env e1))))]
+                  (mi (fun-body (envelope-f e1)) (append (append (map (lambda (x) (cons (car x) (mi (cdr x) okolje))) (map cons (fun-fargs (envelope-f e1)) (call-args izraz))) (envelope-env e1)) (list (cons (fun-name (envelope-f e1)) e1))))]
                  [#t (error "Izraz ni funkcija")]))]
 
-        [(prikaz_okolje? izraz) okolje]))
+        ))
 
-
-
-
-
-;testi
-
-(define add1 (fun "add1" (list "x") (add (valof "x") (int 1))))
-(define toZero (proc "toZero" (if-then-else (same (valof "x") (int 0)) (valof "x") (var "x" (sub (valof "x") (int 1)) (call (valof "toZero") null)))))
-(define isZero (proc "isZero" (if-then-else (same (valof "x") (int 0)) (true) (false))))
-
-(define e (mi (var "a" (int 1)
-              (var "fun_a" (fun "f" (list "a") (valof "a"))
-              (var "b" (int 5)
-              (var "c" (int 6)
-              (fun "fun_b" (list) (call (valof "fun_a") (list (valof "b")))))))) null))
-
-(define fib (fun "fib" (list "n")
-                 (if-then-else (gt (int 3) (valof "n"))
-                               (int 1)
-                               (add (call (valof "fib") (list (add (valof "n") (int -1))))
-                                    (call (valof "fib") (list (add (valof "n") (int -2))))))))
 
 (define quick-sort 
   (fun "quick_sort" (list "lst")
@@ -279,22 +257,67 @@
     (call map_ (list (fun "" (list "x") (mul (valof "x")(valof "x"))) (valof "lst"))))
 )
 
-(define reverse (fun "reverse" (list "xs")
-                     (if-then-else
-                      (is-empty (valof "xs"))
-                      (empty)
-                      (@ (call (valof "reverse") (list (tl (valof "xs"))))
-                               (:: (hd (valof "xs")) (empty))))))
-
-
 (define listic (:: (int 8)(:: (int 10)(:: (int 2)(:: (int 6) (:: (int 1) (:: (int 9) (:: (int 11) (empty)))))))))
 
 listic
 
-;(mi (call quick-sort (list listic)) null)
+(mi (call quick-sort (list listic)) null)
 
-;(mi (call sum_ (list listic))null)
+(mi (call sum_ (list listic))null)
 
-;(mi (call square_ (list listic))null)
+(mi (call square_ (list listic))null)
+
+;;envelope tests
+(printf "\nTest envelope - argument shadows function name\n")
+(printf "-> '()\n")
+(printf "::-> ")(envelope-env(mi (fun "foo" (list "foo") (valof "foo"))null))
+(printf "Result:\n")
+(printf "-> (int 10)\n")
+(printf "::-> ")(mi (call(fun "foo" (list "foo") (valof "foo"))(list (int 10)))null)
+
+(printf "\nTest envelope - variable inside function shadows function argument\n")
+(printf "-> '()\n")
+(printf "::-> ")(envelope-env(mi (fun "foo" (list "foo") (var "foo" (add (valof "foo") (int 11))(valof "foo")))null))
+(printf "Result:\n")
+(printf "->(int 21)\n")
+(printf "::-> ")(mi (call(fun "foo" (list "foo") (var "foo" (add (valof "foo") (int 11))(valof "foo")))(list (int 10)))null)
+
+(printf "\nTest envelope - nested shadowing\n")
+(printf "->(list (cons y (int 20)))\n")
+(printf "::-> ")(envelope-env(mi (var "x" (int 10) 
+  (fun "foo" (list)
+    (var "f_" (fun "foo2" (list "x")(valof "x")) (call (valof "f_")(list (valof "y")))))) (list (cons "y" (int 20)))))
+(printf "Result:\n")
+(printf "->(int 20)\n")
+(printf "::-> ")(mi (call (var "x" (int 10) 
+  (fun "foo" (list)
+    (var "f_" (fun "foo2" (list "x")(valof "x")) (call (valof "f_")(list (valof "y"))))))(list)) (list (cons "y" (int 20))))
+
+(printf "\nTest envelope - shadowed by variable in nested function\n")
+(printf "-> '()\n")
+(printf "::-> ")(envelope-env(mi (var "x" (int 10) 
+  (fun "foo" (list)
+    (var "f_" (fun "foo2" (list)(var "x" (add (int 2) (int 4)) (valof "x"))) (call (valof "f_")(list ))))) null))
+(printf "Result:\n")
+(printf "->(int 6)\n")
+(printf "::-> ")(mi (call (var "x" (int 10) 
+  (fun "foo" (list)
+    (var "f_" (fun "foo2" (list)(var "x" (add (int 2) (int 4)) (valof "x"))) (call (valof "f_")(list )))))(list)) null)
+
+(printf "\nTest envelope - not shadowed by nested variable in nested function\n")
+(printf "-> (list (cons x (int 10)))\n")
+(printf "::-> ")(envelope-env(mi (var "x" (int 10) 
+  (fun "foo" (list)
+    (var "f_" (fun "foo2" (list)(var "y" (var "x" (add (int 2) (int 4)) (valof "x")) (add (valof "y")(valof "x")))) (call (valof "f_")(list))))) null))
+(printf "Result:\n")
+(printf "->(int 16)\n")
+(printf "::-> ")(mi (call(var "x" (int 10) 
+  (fun "foo" (list)
+    (var "f_" (fun "foo2" (list)(var "y" (var "x" (add (int 2) (int 4)) (valof "x")) (add (valof "y")(valof "x")))) (call (valof "f_")(list)))))(list)) null)
+
+
+
+
+
 
 
