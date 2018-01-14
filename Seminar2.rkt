@@ -26,7 +26,7 @@
 (struct fun (name fargs body) #:transparent)
 (struct proc (name body) #:transparent)
 (struct call (e args) #:transparent)
-(struct envelope (env f) #:transparent)
+(struct envelope (env f) )
 (struct var (s e1 e2) #:transparent)
 (struct valof (s) #:transparent)
 (struct prikaz_okolje () #:transparent)
@@ -171,10 +171,22 @@
 
         [(var? izraz)
          (let ([v1 (mi (var-e1 izraz) okolje)])
-           (mi (var-e2 izraz) (append okolje (list (cons (var-s izraz) v1)))))]
+           (mi (var-e2 izraz) (append (list (cons (var-s izraz) v1)) okolje)))]
 
         [(valof? izraz)
          (cdr (assoc (valof-s izraz) okolje))]
+
+        [(fun? izraz)
+         (envelope okolje izraz)]
+
+        [(proc? izraz)
+         izraz]
+
+        [(call? izraz)
+         (let ([e1 (mi (call-e izraz) okolje)])
+           (cond [(proc? e1) (mi (proc-body e1) (append (list (cons (proc-name e1) e1)) okolje))]
+                 [(envelope? e1) ]
+                 [#t izraz]))]
 
         [(prikaz_okolje? izraz) okolje]))
 
@@ -183,3 +195,9 @@
 
 
 ;testi
+
+(define add1 (fun "add1" (list "x") (add (valof "x") (int 1))))
+(define toZero (proc "toZero" (if-then-else (same (valof "x") (int 0)) (valof "x") (var "x" (sub (valof "x") (int 1)) (call (valof "toZero") null)))))
+(define isZero (proc "isZero" (if-then-else (same (valof "x") (int 0)) (true) (false))))
+
+;(mi (call add1 (list (int 5))) null)
